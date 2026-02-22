@@ -25,7 +25,7 @@ module.exports = function(collection) {
 
 		return {
 			mixins: [DbService],
-			adapter: new MongoAdapter(process.env.MONGO_URI || "mongodb://localhost/visionGraphic" ),
+			adapter: new MongoAdapter(process.env.MONGO_URI || "mongodb://localhost/superCampeones" ),
 			collection
 		};
 };

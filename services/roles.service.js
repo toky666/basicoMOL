@@ -30,7 +30,7 @@ module.exports = {
 	 */
 	actions: {
 		/**
-		 * Register a new user
+		 * Register a new roles
 		 *
 		 * @actions
 		 * @param {Object} data - User entity
@@ -46,7 +46,7 @@ module.exports = {
 			},
 			async handler(ctx) {
 				let entity = ctx.params.data;
-				//entity.name = entity.name.toUpperCase();
+				entity.name = entity.name.toUpperCase();
 				entity.createdAt = new Date().toLocaleString("es", {
 					timeZone: "America/La_Paz",
 				});
@@ -58,7 +58,7 @@ module.exports = {
 			},
 		},
 		/**
-		 * Get User.
+		 * Get Roles.
 		 */
 		get: {
 			// auth: "required",
@@ -75,7 +75,7 @@ module.exports = {
 			},
 		},
 		/**
-		 * Delete User.
+		 * Delete Roles.
 		 */
 		remove: {
 			// auth: "required",
@@ -92,7 +92,7 @@ module.exports = {
 			},
 		},
 		/**
-		 * Update User.
+		 * Update Roles.
 		 */
 		update: {
 			// auth: "required",
@@ -152,7 +152,7 @@ module.exports = {
 		},
 
 		/**
-		 * List Paginator User.
+		 * List Paginator Roles.
 		 */
 		datatable: {
 			// auth: "required",

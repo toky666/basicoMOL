@@ -33,6 +33,7 @@ module.exports = {
 			"password",
 			"email",
 			"image",
+			"birth_date",
 			"idrol",
 			"address",
 		],
