@@ -178,6 +178,8 @@ module.exports = {
 				};
 				let count = await this.adapter.count({ query: query });
 				let data = await this.adapter.find(params);
+				console.log("Viendo los datos de roles");
+				console.log(data);
 				return { data: data, count: count };
 			},
 		},
