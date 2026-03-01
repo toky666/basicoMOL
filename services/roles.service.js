@@ -54,6 +54,7 @@ module.exports = {
 					timeZone: "America/La_Paz",
 				});
 				entity.enabled = true;
+				entity.usuario = ctx.meta.user || "desconocido";
 				return await this.adapter.insert(entity);
 			},
 		},
