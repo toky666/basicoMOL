@@ -86,10 +86,10 @@ module.exports = {
 				id: { type: "string" },
 			},
 			async handler(ctx) {
-				return await this.adapter.updateById(ctx.params.id, {
+				/*return await this.adapter.updateById(ctx.params.id, {
 					$set: { enabled: false },
-				});
-				//return this.adapter.removeById(ctx.params.id);
+				});*/
+				return this.adapter.removeById(ctx.params.id);
 			},
 		},
 		/**
