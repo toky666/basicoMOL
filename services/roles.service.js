@@ -24,7 +24,9 @@ module.exports = {
 		/** Validator schema for entity */
 		entityValidator: {},
 	},
-
+	hooks: { // Se ejecuta cuando el servicio inicia 
+		async started() { console.log("Servicio roles iniciado, disparando consulta inicial..."); const resp = await this.actions.datatable({ limit: 10, offset: 0, query: {}, sort: { _id: -1 } }); console.log("Datos iniciales:", resp.data.length); }
+	},
 	/**
 	 * Actions
 	 */
@@ -54,7 +56,7 @@ module.exports = {
 					timeZone: "America/La_Paz",
 				});
 				entity.enabled = true;
-				entity.usuario = ctx.meta.user || "desconocido";
+				//entity.usuario = ctx.meta.user || "desconocido";
 				return await this.adapter.insert(entity);
 			},
 		},
@@ -166,7 +168,7 @@ module.exports = {
 				sort: { type: "object", optional: true },
 			},
 			async handler(ctx) {
-				console.log(ctx);
+				//console.log(ctx);
 				const limit = ctx.params.limit ? Number(ctx.params.limit) : 10;
 				const query = ctx.params.query ? this.gnrQuery(ctx.params.query) : {};
 				const sort = ctx.params.sort || "-_id";
@@ -180,7 +182,7 @@ module.exports = {
 				let count = await this.adapter.count({ query: query });
 				let data = await this.adapter.find(params);
 				console.log("Viendo los datos de roles");
-				console.log(data);
+				//console.log(data);
 				return { data: data, count: count };
 			},
 		},
