@@ -24,8 +24,18 @@ module.exports = {
 		/** Validator schema for entity */
 		entityValidator: {},
 	},
-	hooks: { // Se ejecuta cuando el servicio inicia 
-		async started() { console.log("Servicio roles iniciado, disparando consulta inicial..."); const resp = await this.actions.datatable({ limit: 10, offset: 0, query: {}, sort: { _id: -1 } }); console.log("Datos iniciales:", resp.data.length); }
+	hooks: {
+		// Se ejecuta cuando el servicio inicia
+		async started() {
+			console.log("Servicio roles iniciado, disparando consulta inicial...");
+			const resp = await this.actions.datatable({
+				limit: 5,
+				offset: 0,
+				query: {},
+				sort: { _id: -1 },
+			});
+			console.log("Datos iniciales:", resp.data.length);
+		},
 	},
 	/**
 	 * Actions
@@ -69,7 +79,6 @@ module.exports = {
 			cache: false,
 			params: {
 				id: { type: "string" },
-
 			},
 			async handler(ctx) {
 				return await this.adapter.findOne({
@@ -89,8 +98,8 @@ module.exports = {
 			},
 			async handler(ctx) {
 				/*return await this.adapter.updateById(ctx.params.id, {
-					$set: { enabled: false },
-				});*/
+									$set: { enabled: false },
+								});*/
 				return this.adapter.removeById(ctx.params.id);
 			},
 		},
@@ -142,12 +151,9 @@ module.exports = {
 				let json = await this.transformDocuments(
 					ctx,
 					{
-						fields: [
-							"_id",
-							"name",
-						],
+						fields: ["_id", "name"],
 					},
-					data
+					data,
 				);
 				return json;
 				//return { data: data, count: count };
@@ -169,7 +175,7 @@ module.exports = {
 			},
 			async handler(ctx) {
 				//console.log(ctx);
-				const limit = ctx.params.limit ? Number(ctx.params.limit) : 10;
+				const limit = ctx.params.limit ? Number(ctx.params.limit) : 5;
 				const query = ctx.params.query ? this.gnrQuery(ctx.params.query) : {};
 				const sort = ctx.params.sort || "-_id";
 				const offset = ctx.params.offset ? Number(ctx.params.offset) : 0;
@@ -200,17 +206,77 @@ module.exports = {
 			},
 		},
 
-		list: {
-			// auth: "required",
-			rest: "GET /roles",
+		dofilter: {
+			rest: "POST /roles/dofilter",
 			cache: false,
+			params: {
+				limit: { type: "number", optional: true, convert: true },
+				offset: { type: "number", optional: true, convert: true },
+				query: { type: "object", optional: true },
+				sort: { type: "object", optional: true },
+			},
+			async handler(ctx) {
+				const limit = ctx.params.limit ? Number(ctx.params.limit) : 5;
+				const offset = ctx.params.offset ? Number(ctx.params.offset) : 0;
+				const sort = ctx.params.sort || { _id: -1 }; // Construcción dinámica del query
+
+				const query = ctx.params.query ? this.buildQuery(ctx.params.query) : {}; // Parámetros para el adaptador
+				const params = { limit, offset, sort, query }; // Conteo total y datos filtrados
+				const count = await this.adapter.count({ query });
+				const data = await this.adapter.find(params);
+				console.log("Ejecutando doFilter en roles");
+				console.log("Query limpio:", query);
+				console.log("Sort limpio:", sort);
+
+				return { data, count: data.length === 0 ? 0 : count };
+			},
 		},
 	},
-
 	/**
 	 * Methods
 	 */
 	methods: {
+		buildQuery(rawQuery) {
+			const query = {};
+			for (const [key, value] of Object.entries(rawQuery)) {
+				// Ignorar claves vacías o valores nulos
+				if (!key || key.trim() === "" || value === undefined || value === null) {
+					query[key] = { $regex: value, $options: "i" };
+				}
+
+				// Si el valor es un objeto, interpretamos operadores
+				if (typeof value === "object" && !Array.isArray(value)) {
+					const subQuery = {};
+					for (const [op, val] of Object.entries(value)) {
+						switch (op) {
+							case "regex":
+								subQuery["$regex"] = new RegExp(val, "i");
+								break;
+							case "gte":
+								subQuery["$gte"] = val;
+								break;
+							case "lte":
+								subQuery["$lte"] = val;
+								break;
+							case "in":
+								subQuery["$in"] = Array.isArray(val) ? val : [val];
+								break;
+							default:
+								subQuery[`$${op}`] = val;
+						}
+					}
+					query[key] = subQuery;
+				} else if (typeof value === "string") {
+					// Valor simple tipo string → regex parcial
+					query[key] = { $regex: value, $options: "i" };
+				} else {
+					// Valor simple no string → igualdad directa
+					query[key] = value;
+				}
+			}
+			return query;
+		},
+
 		gnrQuery(QUERY, OR) {
 			var query = { enabled: true };
 			if (QUERY && Object.keys(QUERY).length > 0) {
