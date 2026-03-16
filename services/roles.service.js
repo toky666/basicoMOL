@@ -1,7 +1,5 @@
 "use strict";
 
-const { MoleculerClientError } = require("moleculer").Errors;
-
 const DbService = require("../mixins/db.mixin");
 const CacheCleanerMixin = require("../mixins/cache.cleaner.mixin");
 
@@ -128,38 +126,6 @@ module.exports = {
 			},
 		},
 
-		getRol: {
-			// auth: "required",
-			rest: "GET /roles_nombre/:name",
-			cache: false,
-			params: {
-				name: { type: "string" },
-				sort: { type: "string", optional: true },
-				query: { type: "object", optional: true },
-			},
-			async handler(ctx) {
-				let sort = ctx.params.sort || "-name";
-				let data = await this.adapter.find({
-					sort: [sort],
-					limit: 1,
-					query: { name: { $regex: ctx.params.name } },
-				});
-				// let count = await this.adapter.count({
-				// 	query: { nombre: { $regex: ctx.params.nombre } },
-				// });
-
-				let json = await this.transformDocuments(
-					ctx,
-					{
-						fields: ["_id", "name"],
-					},
-					data,
-				);
-				return json;
-				//return { data: data, count: count };
-			},
-		},
-
 		/**
 		 * List Paginator Roles.
 		 */
@@ -174,7 +140,6 @@ module.exports = {
 				sort: { type: "object", optional: true },
 			},
 			async handler(ctx) {
-				//console.log(ctx);
 				const limit = ctx.params.limit ? Number(ctx.params.limit) : 5;
 				const query = ctx.params.query ? this.gnrQuery(ctx.params.query) : {};
 				const sort = ctx.params.sort || "-_id";
@@ -187,22 +152,7 @@ module.exports = {
 				};
 				let count = await this.adapter.count({ query: query });
 				let data = await this.adapter.find(params);
-				console.log("Viendo los datos de roles");
-				//console.log(data);
 				return { data: data, count: count };
-			},
-		},
-
-		search: {
-			// auth: "required",
-			rest: "POST /roles/search",
-			cache: false,
-			params: {
-				query: { type: "object" },
-			},
-			async handler(ctx) {
-				const query = ctx.params.query ? this.gnrQuery(ctx.params.query) : {};
-				return await this.adapter.find({ query: query });
 			},
 		},
 
@@ -224,9 +174,6 @@ module.exports = {
 				const params = { limit, offset, sort, query }; // Conteo total y datos filtrados
 				const count = await this.adapter.count({ query });
 				const data = await this.adapter.find(params);
-				console.log("Ejecutando doFilter en roles");
-				console.log("Query limpio:", query);
-				console.log("Sort limpio:", sort);
 
 				return { data, count: data.length === 0 ? 0 : count };
 			},

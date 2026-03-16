@@ -2,8 +2,6 @@
 
 const { MoleculerClientError } = require("moleculer").Errors;
 
-const crypto = require("crypto");
-
 const bcrypt = require("bcrypt-nodejs");
 const jwt = require("jsonwebtoken");
 
@@ -123,19 +121,15 @@ module.exports = {
 		remove: {
 			rest: "DELETE /users/:id",
 			cache: false,
+			params: {
+				id: { type: "string" },
+			},
+			async handler(ctx) {
+				return await this.adapter.updateById(ctx.params.id, {
+					$set: { enabled: false },
+				});
+			},
 		},
-		// remove: {
-		// 	rest: "DELETE /users/:id",
-		// 	cache: false,
-		// 	params: {
-		// 		id: { type: "string" },
-		// 	},
-		// 	async handler(ctx) {
-		// 		return await this.adapter.updateById(ctx.params.id, {
-		// 			$set: { enabled: false },
-		// 		});
-		// 	},
-		// },
 		/**
 		 * Update User.
 		 */
@@ -205,198 +199,6 @@ module.exports = {
 				//return { data: data, count: count };
 			},
 		},
-		getLastNames: {
-			// auth: "required",
-			cache: false,
-			rest: "GET /get_apellido/:last_names",
-			params: {
-				last_names: { type: "string" },
-				sort: { type: "string", optional: true },
-				query: { type: "object", optional: true },
-			},
-			async handler(ctx) {
-				let sort = ctx.params.sort || "-id";
-				let data = await this.adapter.find({
-					sort: [sort],
-					limit: 1,
-					query: { last_names: { $regex: ctx.params.last_names } },
-				});
-				// let count = await this.adapter.count({
-				// 	query: { nombre: { $regex: ctx.params.nombre } },
-				// });
-
-				let json = await this.transformDocuments(
-					ctx,
-					{
-						fields: [
-							"_id",
-							"names",
-							"last_names",
-							"ci",
-							"phone",
-							"password",
-							"email",
-							"image",
-							"idrol",
-						],
-					},
-					data
-				);
-				return json;
-				//return { data: data, count: count };
-			},
-		},
-		getCI: {
-			// auth: "required",
-			cache: false,
-			rest: "GET /get_ci/:ci",
-			params: {
-				ci: { type: "string" },
-				sort: { type: "string", optional: true },
-				query: { type: "object", optional: true },
-			},
-			async handler(ctx) {
-				let sort = ctx.params.sort || "-id";
-				let data = await this.adapter.find({
-					sort: [sort],
-					limit: 1,
-					query: { ci: { $regex: ctx.params.ci } },
-				});
-				// let count = await this.adapter.count({
-				// 	query: { nombre: { $regex: ctx.params.nombre } },
-				// });
-
-				let json = await this.transformDocuments(
-					ctx,
-					{
-						fields: [
-							"_id",
-							"names",
-							"last_names",
-							"ci",
-							"phone",
-							"password",
-							"email",
-							"image",
-							"idrol",
-						],
-					},
-					data
-				);
-				return json;
-				//return { data: data, count: count };
-			},
-		},
-		getTelephone: {
-			// auth: "required",
-			cache: false,
-			rest: "GET /get_telefono/:phone",
-			params: {
-				phone: { type: "string" },
-				sort: { type: "string", optional: true },
-				query: { type: "object", optional: true },
-			},
-			async handler(ctx) {
-				let sort = ctx.params.sort || "-id";
-				let data = await this.adapter.find({
-					sort: [sort],
-					limit: 1,
-					query: { phone: { $regex: ctx.params.phone } },
-				});
-				// let count = await this.adapter.count({
-				// 	query: { nombre: { $regex: ctx.params.nombre } },
-				// });
-
-				let json = await this.transformDocuments(
-					ctx,
-					{
-						fields: [
-							"_id",
-							"names",
-							"last_names",
-							"ci",
-							"phone",
-							"password",
-							"email",
-							"image",
-							"idrol",
-						],
-					},
-					data
-				);
-				return json;
-				//return { data: data, count: count };
-			},
-		},
-		getRoles: {
-			// auth: "required",
-			cache: false,
-			rest: "GET /get_roles/:roles",
-			params: {
-				roles: { type: "string" },
-				sort: { type: "string", optional: true },
-				query: { type: "object", optional: true },
-			},
-			async handler(ctx) {
-				let sort = ctx.params.sort || "-id";
-				let data = await this.adapter.find({
-					sort: [sort],
-					limit: 1,
-					query: { roles: { $regex: ctx.params.roles } },
-				});
-				// let count = await this.adapter.count({
-				// 	query: { nombre: { $regex: ctx.params.nombre } },
-				// });
-
-				let json = await this.transformDocuments(
-					ctx,
-					{
-						fields: [
-							"_id",
-							"names",
-							"last_names",
-							"ci",
-							"phone",
-							"password",
-							"email",
-							"image",
-							"idrol",
-							"namerol",
-
-						],
-					},
-					data
-				);
-				return json;
-				//return { data: data, count: count };
-			},
-		},
-		getEmail: {
-			cache: false,
-			rest: "GET /get_email/:email",
-			params: {
-				email: { type: "string" },
-				sort: { type: "string", optional: true },
-				query: { type: "object", optional: true },
-			},
-			async handler(ctx) {
-				let sort = ctx.params.sort || "-names";
-				let data = await this.adapter.find({
-					sort: [sort],
-					limit: 1,
-					query: { email: { $regex: ctx.params.email } },
-				});
-
-				let json = await this.transformDocuments(
-					ctx,
-					{
-						fields: ["email"],
-					},
-					data
-				);
-				return json;
-			},
-		},
 		updateContrasena: {
 			rest: "PUT /contrasena/:id",
 			cache: false,
@@ -419,6 +221,28 @@ module.exports = {
 				return await this.adapter.updateById(ctx.params.id, { $set: entity });
 			},
 		},
+		dofilter: {
+			rest: "POST /users/dofilter",
+			cache: false,
+			params: {
+				limit: { type: "number", optional: true, convert: true },
+				offset: { type: "number", optional: true, convert: true },
+				query: { type: "object", optional: true },
+				sort: { type: "object", optional: true },
+			},
+			async handler(ctx) {
+				const limit = ctx.params.limit ? Number(ctx.params.limit) : 5;
+				const offset = ctx.params.offset ? Number(ctx.params.offset) : 0;
+				const sort = ctx.params.sort || { _id: -1 }; // Construcción dinámica del query
+
+				const query = ctx.params.query ? this.buildQuery(ctx.params.query) : {}; // Parámetros para el adaptador
+				const params = { limit, offset, sort, query }; // Conteo total y datos filtrados
+				const count = await this.adapter.count({ query });
+				const data = await this.adapter.find(params);
+
+				return { data, count: data.length === 0 ? 0 : count };
+			},
+		},
 		/**
 		 * List Paginator User.
 		 */
@@ -433,7 +257,7 @@ module.exports = {
 			},
 			async handler(ctx) {
 				console.log(ctx);
-				const limit = ctx.params.limit ? Number(ctx.params.limit) : 10;
+				const limit = ctx.params.limit ? Number(ctx.params.limit) : 5;
 				const query = ctx.params.query ? this.gnrQuery(ctx.params.query) : {};
 				const sort = ctx.params.sort || "-_id";
 				const offset = ctx.params.offset ? Number(ctx.params.offset) : 0;
@@ -446,17 +270,6 @@ module.exports = {
 				let count = await this.adapter.count({ query: query });
 				let data = await this.adapter.find(params);
 				return { data: data, count: count };
-			},
-		},
-		search: {
-			cache: false,
-			rest: "POST /users/search",
-			params: {
-				query: { type: "object" },
-			},
-			async handler(ctx) {
-				const query = ctx.params.query ? this.gnrQuery(ctx.params.query) : {};
-				return await this.adapter.find({ query: query });
 			},
 		},
 
