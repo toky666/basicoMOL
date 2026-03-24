@@ -125,7 +125,10 @@ module.exports = {
 				return await this.adapter.updateById(ctx.params.id, { $set: entity });
 			},
 		},
-
+		list: {
+			rest: "GET /roles",
+			cache: false,
+		},
 		/**
 		 * List Paginator Roles.
 		 */

@@ -27,11 +27,13 @@ module.exports = {
 			"names",
 			"last_names",
 			"ci",
+			"exp",
 			"phone",
 			"password",
+			"sex",
 			"email",
 			"image",
-			"birth_date",
+			"birthday",
 			"idrol",
 			"address",
 		],
@@ -66,7 +68,6 @@ module.exports = {
 			},
 			async handler(ctx) {
 				let entity = ctx.params.user;
-
 				await this.validateEntity(entity);
 				if (entity.names) {
 					entity.names = entity.names.toUpperCase();
@@ -81,13 +82,17 @@ module.exports = {
 							{ field: "email", message: "is exist" },
 						]);
 				}
-
 				try {
 					var salt = bcrypt.genSaltSync(10);
 					var hash = bcrypt.hashSync(entity.password, salt);
 					entity.password = hash;
 				} catch (e) {
 					return { error: err };
+				}
+				if (entity.birthday) {
+					entity.birthday = new Date(entity.birthday).toLocaleString("es", {
+						timeZone: "America/La_Paz",
+					});
 				}
 
 				entity.createdAt = new Date().toLocaleString("es", {
