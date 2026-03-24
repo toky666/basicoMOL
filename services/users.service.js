@@ -163,6 +163,32 @@ module.exports = {
 				return await this.adapter.updateById(ctx.params.id, { $set: entity });
 			},
 		},
+		getEmail: {
+			cache: false,
+			rest: "GET /get_email/:email",
+			params: {
+				email: { type: "string" },
+				sort: { type: "string", optional: true },
+				query: { type: "object", optional: true },
+			},
+			async handler(ctx) {
+				let sort = ctx.params.sort || "-names";
+				let data = await this.adapter.find({
+					sort: [sort],
+					limit: 1,
+					query: { email: { $regex: ctx.params.email } },
+				});
+
+				let json = await this.transformDocuments(
+					ctx,
+					{
+						fields: ["email"],
+					},
+					data
+				);
+				return json;
+			},
+		},
 		getUsers: {
 			// auth: "required",
 			cache: false,
@@ -191,11 +217,15 @@ module.exports = {
 							"names",
 							"last_names",
 							"ci",
+							"exp",
 							"phone",
 							"password",
+							"sex",
 							"email",
 							"image",
+							"birthday",
 							"idrol",
+							"address",
 						],
 					},
 					data

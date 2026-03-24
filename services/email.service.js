@@ -72,7 +72,7 @@ module.exports = {
 					secure: false, // true for 465, false for other ports
 					auth: {
 						user: "yokycoronelchavez@gmail.com", // generated ethereal user
-						pass: "momusu000", // generated ethereal password
+						pass: "xhta cyfh mups sjfw", // generated ethereal password
 					},
 				});
 
@@ -160,7 +160,7 @@ module.exports = {
 					secure: false, // true for 465, false for other ports
 					auth: {
 						user: "yokycoronelchavez@gmail.com", // generated ethereal user
-						pass: "momusu000", // generated ethereal password
+						pass: "xhta cyfh mups sjfw", // generated ethereal password
 					},
 				});
 
