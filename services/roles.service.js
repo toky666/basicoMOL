@@ -48,7 +48,7 @@ module.exports = {
 		 * @returns {Object} Created entity & token
 		 */
 		create: {
-			// auth: "required",
+			auth: "required",
 			rest: "POST /roles",
 			cache: false,
 			params: {
@@ -72,7 +72,7 @@ module.exports = {
 		 * Get Roles.
 		 */
 		get: {
-			// auth: "required",
+			auth: "required",
 			rest: "GET /roles/:id",
 			cache: false,
 			params: {
@@ -88,7 +88,7 @@ module.exports = {
 		 * Delete Roles.
 		 */
 		remove: {
-			// auth: "required",
+			auth: "required",
 			rest: "DELETE /roles/:id",
 			cache: false,
 			params: {
@@ -105,7 +105,7 @@ module.exports = {
 		 * Update Roles.
 		 */
 		update: {
-			// auth: "required",
+			auth: "required",
 			rest: "PUT /roles/:id",
 			cache: false,
 			params: {
@@ -126,6 +126,7 @@ module.exports = {
 			},
 		},
 		list: {
+			auth: "required",
 			rest: "GET /roles",
 			cache: false,
 		},
@@ -133,7 +134,7 @@ module.exports = {
 		 * List Paginator Roles.
 		 */
 		datatable: {
-			// auth: "required",
+			auth: "required",
 			rest: "POST /roles/datatable",
 			cache: false,
 			params: {
@@ -160,6 +161,7 @@ module.exports = {
 		},
 
 		dofilter: {
+			auth: "required",
 			rest: "POST /roles/dofilter",
 			cache: false,
 			params: {

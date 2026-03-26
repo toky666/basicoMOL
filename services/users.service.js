@@ -61,6 +61,7 @@ module.exports = {
 		 * @returns {Object} Created entity & token
 		 */
 		create: {
+			auth: "required",
 			rest: "POST /users",
 			cache: false,
 			params: {
@@ -109,6 +110,7 @@ module.exports = {
 		 * Get User.
 		 */
 		get: {
+			auth: "required",
 			rest: "GET /users/:id",
 			cache: false,
 			params: {
@@ -124,6 +126,7 @@ module.exports = {
 		 * Delete User.
 		 */
 		remove: {
+			auth: "required",
 			rest: "DELETE /users/:id",
 			cache: false,
 			params: {
@@ -139,6 +142,7 @@ module.exports = {
 		 * Update User.
 		 */
 		update: {
+			auth: "required",
 			rest: "PUT /users/:id",
 			cache: false,
 			params: {
@@ -164,6 +168,7 @@ module.exports = {
 			},
 		},
 		getEmail: {
+			auth: "required",
 			cache: false,
 			rest: "GET /get_email/:email",
 			params: {
@@ -190,7 +195,7 @@ module.exports = {
 			},
 		},
 		getUsers: {
-			// auth: "required",
+			auth: "required",
 			cache: false,
 			rest: "GET /get_nombre/:names",
 			params: {
@@ -235,6 +240,7 @@ module.exports = {
 			},
 		},
 		updateContrasena: {
+			auth: "required",
 			rest: "PUT /contrasena/:id",
 			cache: false,
 			params: {
@@ -257,6 +263,7 @@ module.exports = {
 			},
 		},
 		dofilter: {
+			auth: "required",
 			rest: "POST /users/dofilter",
 			cache: false,
 			params: {
@@ -282,6 +289,7 @@ module.exports = {
 		 * List Paginator User.
 		 */
 		datatable: {
+			auth: "required",
 			cache: false,
 			rest: "POST /users/datatable",
 			params: {
@@ -317,7 +325,7 @@ module.exports = {
 		 * @returns {Object} Logged in user with token
 		 */
 		login: {
-			// rest: "POST /users/login",
+			//rest: "POST /users/login",
 			params: {
 				user: {
 					type: "object",
@@ -331,7 +339,8 @@ module.exports = {
 				const { email, password } = ctx.params.user;
 
 				const user = await this.adapter.findOne({ email });
-
+				console.log("***********************");
+				console.log(ctx.params.user);
 				if (!user)
 					throw new MoleculerClientError(
 						"Email or password is invalid!",
@@ -368,30 +377,45 @@ module.exports = {
 		 *
 		 * @returns {Object} Resolved user
 		 */
+
 		resolveToken: {
 			cache: {
 				keys: ["token"],
-				ttl: 60 * 60, // 1 hour
+				ttl: 60 * 60, // solo cache, no controla la vida del token
 			},
 			params: {
 				token: "string",
 			},
 			async handler(ctx) {
-				const decoded = await new this.Promise((resolve, reject) => {
-					jwt.verify(
-						ctx.params.token,
-						this.settings.JWT_SECRET,
-						(err, decoded) => {
-							if (err) return reject(err);
-
-							resolve(decoded);
-						}
-					);
-				});
-
-				if (decoded.id) return this.getById(decoded.id);
+				try {
+					const decoded = await new this.Promise((resolve, reject) => {
+						jwt.verify(
+							ctx.params.token,
+							this.settings.JWT_SECRET,
+							(err, decoded) => {
+								if (err) return reject(err);
+								resolve(decoded);
+							}
+						);
+					});
+					if (decoded._id) return this.getById(decoded._id);
+				} catch (err) {
+					if (err.name === "TokenExpiredError") {
+						// Token vencido → respuesta clara
+						throw new UnAuthorizedError("Token expirado", 401, "TOKEN_EXPIRED", {
+							error: "Token expirado",
+							expiredAt: err.expiredAt, // fecha exacta en que venció
+							code: "TOKEN_EXPIRED"
+						});
+					}
+					throw new UnAuthorizedError("Token inválido", 401, "TOKEN_INVALID", {
+						error: "Token inválido",
+						code: "TOKEN_INVALID"
+					});
+				}
 			},
 		},
+
 
 		/**
 		 * Get current user entity.
@@ -435,8 +459,14 @@ module.exports = {
 			const today = new Date();
 			const exp = new Date(today);
 			// exp.setDate(today.getDate() + 60);
-			// exp.setMinutes(today.getMinutes() + 5);
-			exp.setHours(today.getHours() + 10); //el tokens dura 10 hrs
+			exp.setMinutes(today.getMinutes() + 2);
+			//exp.setHours(today.getHours() + 10); //el tokens dura 10 hrs
+			const now = new Date();
+			const expSeconds = Math.floor(exp.getTime() / 1000);
+			const nowSeconds = Math.floor(now.getTime() / 1000); // fecha actual en segundos
+			console.log("Tiempo actual (segundos):", nowSeconds);
+			console.log("Expira en (segundos):", expSeconds);
+			console.log("Diferencia:", expSeconds - nowSeconds, "segundos");
 			return jwt.sign(
 				{
 					_id: user._id,
@@ -445,7 +475,8 @@ module.exports = {
 					image: user.image,
 					last_name: user.last_name,
 					names: user.names,
-					exp: Math.floor(exp.getTime() / 1000),
+					//exp: "2m"
+					exp: expSeconds,
 				},
 				this.settings.JWT_SECRET
 			);
@@ -484,12 +515,16 @@ module.exports = {
 		 * @param {Object} user
 		 */
 		transformEntityToken(user) {
-			//user.image = user.image || "https://www.gravatar.com/avatar/" + crypto.createHash("md5").update(user.email).digest("hex") + "?d=robohash";
 			const today = new Date();
 			const exp = new Date(today);
-			// exp.setDate(today.getDate() + 2);
-			// exp.setMinutes(today.getMinutes() + 5);
-			exp.setHours(today.getHours() + 10); //el tokens dura 10 hrs
+			// exp.setDate(today.getDate() + 60);
+			//exp.setMinutes(today.getMinutes() + 2);
+			exp.setHours(today.getHours() + 1); //el tokens dura 10hrs
+			const expSeconds = Math.floor(exp.getTime() / 1000);
+			const nowSeconds = Math.floor(today.getTime() / 1000); // fecha actual en segundos
+			console.log("Tiempo actual (segundos):", nowSeconds);
+			console.log("Expira en (segundos):", expSeconds);
+			console.log("Diferencia:", expSeconds - nowSeconds, "segundos");
 			let data = {
 				_id: user._id,
 				idrol: user.idrol,
@@ -505,7 +540,7 @@ module.exports = {
 						image: user.image,
 						last_name: user.last_name,
 						names: user.names,
-						exp: Math.floor(exp.getTime() / 1000),
+						exp: expSeconds,
 					},
 					this.settings.JWT_SECRET
 				),
