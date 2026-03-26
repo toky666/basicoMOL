@@ -379,10 +379,12 @@ module.exports = {
 		 */
 
 		resolveToken: {
-			cache: {
+			cache: false,
+			//Para rendimiento: puedes usar ttl en Moleculer
+			/*cache: {
 				keys: ["token"],
-				ttl: 60 * 60, // solo cache, no controla la vida del token
-			},
+				ttl: 60 * 60, // 1 hora solo cache, no controla la vida del token
+			},*/
 			params: {
 				token: "string",
 			},
@@ -400,7 +402,7 @@ module.exports = {
 					});
 					if (decoded._id) return this.getById(decoded._id);
 				} catch (err) {
-					if (err.name === "TokenExpiredError") {
+					if ("TokenExpiredError") {
 						// Token vencido → respuesta clara
 						throw new UnAuthorizedError("Token expirado", 401, "TOKEN_EXPIRED", {
 							error: "Token expirado",
@@ -515,16 +517,6 @@ module.exports = {
 		 * @param {Object} user
 		 */
 		transformEntityToken(user) {
-			const today = new Date();
-			const exp = new Date(today);
-			// exp.setDate(today.getDate() + 60);
-			//exp.setMinutes(today.getMinutes() + 2);
-			exp.setHours(today.getHours() + 1); //el tokens dura 10hrs
-			const expSeconds = Math.floor(exp.getTime() / 1000);
-			const nowSeconds = Math.floor(today.getTime() / 1000); // fecha actual en segundos
-			console.log("Tiempo actual (segundos):", nowSeconds);
-			console.log("Expira en (segundos):", expSeconds);
-			console.log("Diferencia:", expSeconds - nowSeconds, "segundos");
 			let data = {
 				_id: user._id,
 				idrol: user.idrol,
@@ -540,9 +532,9 @@ module.exports = {
 						image: user.image,
 						last_name: user.last_name,
 						names: user.names,
-						exp: expSeconds,
 					},
-					this.settings.JWT_SECRET
+					this.settings.JWT_SECRET,
+					{ expiresIn: "2m" } // aquí defines la expiración real
 				),
 			};
 			return { data };
