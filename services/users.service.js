@@ -20,6 +20,7 @@ module.exports = {
 		rest: "/",
 		/** Secret for JWT */
 		JWT_SECRET: process.env.JWT_SECRET || "jwt-conduit-secret",
+		JWT_REFRESH_SECRET: process.env.JWT_REFRESH_SECRET || "jwt-refresh-secret",
 
 		/** Public fields */
 		fields: [
@@ -402,7 +403,7 @@ module.exports = {
 					});
 					if (decoded._id) return this.getById(decoded._id);
 				} catch (err) {
-					if ("TokenExpiredError") {
+					if (err.name === "TokenExpiredError") {
 						// Token vencido → respuesta clara
 						throw new UnAuthorizedError("Token expirado", 401, "TOKEN_EXPIRED", {
 							error: "Token expirado",
@@ -418,6 +419,49 @@ module.exports = {
 			},
 		},
 
+		refreshToken: {
+			rest: "POST /users/refreshToken",
+			cache: false,
+			params: {
+				refreshToken: "string"
+			},
+			async handler(ctx) {
+				try {
+					const decodedRefresh = jwt.verify(
+						ctx.params.refreshToken,
+						this.settings.JWT_REFRESH_SECRET
+					);
+					const user = await this.getById(decodedRefresh._id);
+					const newAccessToken = jwt.sign(
+						{
+							_id: user._id,
+							idrol: user.idrol,
+							namerol: user.namerol,
+						},
+						this.settings.JWT_SECRET,
+						{ expiresIn: "5m" },
+
+					);
+
+					const newAccessRefreshToken = jwt.sign(
+						{
+							_id: user._id,
+							idrol: user.idrol,
+							namerol: user.namerol,
+						},
+						this.settings.JWT_REFRESH_SECRET,
+						{ expiresIn: "10m" },
+
+					);
+					return { user, token: newAccessToken, refreshToken: newAccessRefreshToken };
+				} catch (err) {
+					throw new UnAuthorizedError("Refresh token inválido", 401, "REFRESH_INVALID", {
+						error: "Refresh token inválido",
+						code: "REFRESH_INVALID"
+					});
+				}
+			},
+		},
 
 		/**
 		 * Get current user entity.
@@ -536,7 +580,21 @@ module.exports = {
 					this.settings.JWT_SECRET,
 					{ expiresIn: "2m" } // aquí defines la expiración real
 				),
+				refreshToken: jwt.sign(
+					{
+						_id: user._id,
+						idrol: user.idrol,
+						namerol: user.namerol,
+						image: user.image,
+						last_name: user.last_name,
+						names: user.names,
+					}, // puedes guardar solo lo mínimo
+					this.settings.JWT_REFRESH_SECRET, // usa otra clave distinta
+					{ expiresIn: "4m" } // refresh dura más tiempo
+				),
 			};
+			console.log("**************************");
+			console.log(data);
 			return { data };
 		},
 
