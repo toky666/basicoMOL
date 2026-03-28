@@ -439,11 +439,11 @@ module.exports = {
 							namerol: user.namerol,
 						},
 						this.settings.JWT_SECRET,
-						{ expiresIn: "5m" },
+						{ expiresIn: "15m" },
 
 					);
 
-					const newAccessRefreshToken = jwt.sign(
+					/*const newAccessRefreshToken = jwt.sign(
 						{
 							_id: user._id,
 							idrol: user.idrol,
@@ -452,8 +452,8 @@ module.exports = {
 						this.settings.JWT_REFRESH_SECRET,
 						{ expiresIn: "10m" },
 
-					);
-					return { user, token: newAccessToken, refreshToken: newAccessRefreshToken };
+					);*/
+					return { user, token: newAccessToken };
 				} catch (err) {
 					throw new UnAuthorizedError("Refresh token inválido", 401, "REFRESH_INVALID", {
 						error: "Refresh token inválido",
@@ -490,6 +490,56 @@ module.exports = {
 			rest: "GET /users",
 			cache: false,
 		},
+	},
+	saveDraft: {
+		rest: "POST /users/saveDraft",
+		cache: false,
+		params: {
+			formData: "object" // los datos parciales del formulario
+		},
+		async handler(ctx) {
+			try {
+				const userId = ctx.meta.user._id; // viene del JWT ya validado
+				const { formData } = ctx.params;
+
+				// Guardar o actualizar draft en DB
+				const draft = await this.adapter.findOne({ userId });
+				if (draft) {
+					await this.adapter.updateById(draft._id, {
+						$set: { formData, updatedAt: new Date() }
+					});
+				} else {
+					await this.adapter.insert({
+						userId,
+						formData,
+						updatedAt: new Date()
+					});
+				}
+
+				return { message: "Draft guardado correctamente" };
+			} catch (err) {
+				throw new Error("Error al guardar draft: " + err.message);
+			}
+		}
+	},
+
+	getDraft: {
+		rest: "GET /users/getDraft",
+		cache: false,
+		async handler(ctx) {
+			try {
+				const userId = ctx.meta.user._id;
+				const draft = await this.adapter.findOne({ userId });
+
+				if (!draft) {
+					return { message: "No hay draft guardado" };
+				}
+
+				return { formData: draft.formData, updatedAt: draft.updatedAt };
+			} catch (err) {
+				throw new Error("Error al recuperar draft: " + err.message);
+			}
+		}
 	},
 
 	/**
@@ -578,7 +628,7 @@ module.exports = {
 						names: user.names,
 					},
 					this.settings.JWT_SECRET,
-					{ expiresIn: "2m" } // aquí defines la expiración real
+					{ expiresIn: "15m" } // aquí defines la expiración real
 				),
 				refreshToken: jwt.sign(
 					{
@@ -590,7 +640,7 @@ module.exports = {
 						names: user.names,
 					}, // puedes guardar solo lo mínimo
 					this.settings.JWT_REFRESH_SECRET, // usa otra clave distinta
-					{ expiresIn: "4m" } // refresh dura más tiempo
+					{ expiresIn: "8h" } // refresh dura más tiempo
 				),
 			};
 			console.log("**************************");
