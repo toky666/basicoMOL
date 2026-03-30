@@ -614,7 +614,6 @@ module.exports = {
 			let data = {
 				_id: user._id,
 				idrol: user.idrol,
-				namerol: user.namerol,
 				image: user.image,
 				last_name: user.last_name,
 				names: user.names,
@@ -622,7 +621,6 @@ module.exports = {
 					{
 						_id: user._id,
 						idrol: user.idrol,
-						namerol: user.namerol,
 						image: user.image,
 						last_name: user.last_name,
 						names: user.names,
@@ -634,7 +632,6 @@ module.exports = {
 					{
 						_id: user._id,
 						idrol: user.idrol,
-						namerol: user.namerol,
 						image: user.image,
 						last_name: user.last_name,
 						names: user.names,
