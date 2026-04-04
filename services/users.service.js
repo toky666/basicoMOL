@@ -342,35 +342,21 @@ module.exports = {
 				console.log(ctx.params.user);
 				if (!user)
 					throw new MoleculerClientError(
-						"Email or password is invalid!",
-						422,
-						"",
+						"Email or password is invalid!", 422, "",
 						[{ field: "message", message: "Usuario no registrado" }]
 					);
-
-				//const res = true;
-				var hash = bcrypt.hashSync(user.password);
-				console.log(user.password);
 				const res = await bcrypt.compareSync(password, user.password);
-
 				if (!res)
-					throw new MoleculerClientError("Wrong password!", 422, "", [
-						{
-							field: "message",
-							message: "La contraseÃ±a no es correcta. Intentalo de nuevo",
-						},
-					]);
+					throw new MoleculerClientError("Wrong password!", 422, "",
+						[{ field: "message", message: "La contraseÃ±a no es correcta. Intentalo de nuevo", },]);
 				const entity = await this.transformEntityToken(user);
-
-				// Guardar en meta para que /me lo pueda leer
 				ctx.meta.token = entity.data.token;
 				user.refreshToken = entity.data.refreshToken;
 				await this.adapter.updateById(user._id, { $set: { refreshToken: user.refreshToken } });
-
-
 				console.log("Usuario logueado:");
 				console.log(entity);
 				console.log(user.refreshToken);
+				console.log(await this.adapter.updateById(user._id, { $set: { refreshToken: user.refreshToken } }));
 				return entity;
 			},
 		},
@@ -466,14 +452,14 @@ module.exports = {
 		 */
 		me: {
 			auth: "required",              // requiere JWT válido
-			rest: "GET /me",   
+			rest: "GET /me",
 			cache: false,            // expone el endpoint GET /me
 			async handler(ctx) {
 				// El usuario viene del token decodificado
-				const user = ctx.meta.user;
+				const user = await this.getById(ctx.meta.user._id);
 				console.log("Usuario en /me:", user);
 				console.log("Token en /me:", ctx.meta.token);
-				console.log(user.refreshToken);
+				console.log("Refresh Token en /me:", user.refreshToken);
 				if (!user) throw new Moleculer.Errors.MoleculerClientError("User not found!", 404);
 
 				// Devuelves los datos que quieras exponer
@@ -484,7 +470,7 @@ module.exports = {
 					idrol: user.idrol,
 					last_name: user.last_name,
 					token: ctx.meta.token,
-					refresh: user.refreshToken
+					refreshToken: user.refreshToken   // 👈 lo traes de la BD
 				};
 			}
 		},
@@ -646,8 +632,6 @@ module.exports = {
 					{ expiresIn: "8h" } // refresh dura más tiempo
 				),
 			};
-			console.log("**************************");
-			console.log(data);
 			return { data };
 		},
 
