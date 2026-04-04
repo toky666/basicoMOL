@@ -326,7 +326,6 @@ module.exports = {
 		 * @returns {Object} Logged in user with token
 		 */
 		login: {
-			//rest: "POST /users/login",
 			params: {
 				user: {
 					type: "object",
@@ -338,7 +337,6 @@ module.exports = {
 			},
 			async handler(ctx) {
 				const { email, password } = ctx.params.user;
-
 				const user = await this.adapter.findOne({ email });
 				console.log("***********************");
 				console.log(ctx.params.user);
@@ -362,11 +360,18 @@ module.exports = {
 							message: "La contraseÃ±a no es correcta. Intentalo de nuevo",
 						},
 					]);
-				// const doc = await this.transformDocuments(ctx, {}, user);
+				const entity = await this.transformEntityToken(user);
 
-				//  const doc = await this.transformDocuments(ctx, {}, user);
-				//  return await this.transformEntity(doc, true, ctx.meta.token);
-				return await this.transformEntityToken(user);
+				// Guardar en meta para que /me lo pueda leer
+				ctx.meta.token = entity.data.token;
+				user.refreshToken = entity.data.refreshToken;
+				await this.adapter.updateById(user._id, { $set: { refreshToken: user.refreshToken } });
+
+
+				console.log("Usuario logueado:");
+				console.log(entity);
+				console.log(user.refreshToken);
+				return entity;
 			},
 		},
 
@@ -440,19 +445,7 @@ module.exports = {
 						},
 						this.settings.JWT_SECRET,
 						{ expiresIn: "15m" },
-
 					);
-
-					/*const newAccessRefreshToken = jwt.sign(
-						{
-							_id: user._id,
-							idrol: user.idrol,
-							namerol: user.namerol,
-						},
-						this.settings.JWT_REFRESH_SECRET,
-						{ expiresIn: "10m" },
-
-					);*/
 					return { user, token: newAccessToken };
 				} catch (err) {
 					throw new UnAuthorizedError("Refresh token inválido", 401, "REFRESH_INVALID", {
@@ -472,19 +465,32 @@ module.exports = {
 		 * @returns {Object} User entity
 		 */
 		me: {
-			auth: "required",
-			rest: "GET /user",
-			cache: {
-				keys: ["#userID"],
-			},
+			auth: "required",              // requiere JWT válido
+			rest: "GET /me",   
+			cache: false,            // expone el endpoint GET /me
 			async handler(ctx) {
-				const user = await this.getById(ctx.meta.user._id);
-				if (!user) throw new MoleculerClientError("User not found!", 400);
+				// El usuario viene del token decodificado
+				const user = ctx.meta.user;
+				console.log("Usuario en /me:", user);
+				console.log("Token en /me:", ctx.meta.token);
+				console.log(user.refreshToken);
+				if (!user) throw new Moleculer.Errors.MoleculerClientError("User not found!", 404);
 
-				const doc = await this.transformDocuments(ctx, {}, user);
-				return await this.transformEntity(doc, true, ctx.meta.token);
-			},
+				// Devuelves los datos que quieras exponer
+				return {
+					_id: user._id,
+					names: user.names,
+					image: user.image || "",
+					idrol: user.idrol,
+					last_name: user.last_name,
+					token: ctx.meta.token,
+					refresh: user.refreshToken
+				};
+			}
 		},
+
+
+
 
 		list: {
 			rest: "GET /users",
@@ -600,7 +606,7 @@ module.exports = {
 		 * @param {Object} entity
 		 * @param {Object} user - Logged in user
 		 */
-		transformEntity(ctx, entity) {
+		transformEntity1(ctx, entity) {
 			if (!entity) return this.Promise.resolve();
 
 			return this.Promise.resolve(entity);
