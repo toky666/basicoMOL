@@ -7,7 +7,10 @@ module.exports = {
 	mixins: [ApiGateway],
 	settings: {
 		port: process.env.PORT || 3081,
-		cors: true,
+		cors: {
+			origin: "http://localhost:4200", 	//mi FRONTEND esta en el puerto 4200, pero si usas postman usa *
+			credentials: true,					// 👈 Permite enviar cookies en las solicitudes CORS
+		},
 		routes: [
 			{
 				authorization: false,
@@ -121,6 +124,15 @@ module.exports = {
 		assets: {
 			folder: "./public",
 		},
+		// 👇 habilita cookies en las respuestas
+		onAfterCall(ctx, route, req, res, data) {
+			if (ctx.meta.setCookies) {
+				ctx.meta.setCookies.forEach(cookie => {
+					res.setHeader("Set-Cookie", cookie);
+				});
+			}
+			return data;
+		},
 
 		// logRequestParams: "info",
 		// logResponseData: "info",
@@ -137,6 +149,28 @@ module.exports = {
 		 * @param {IncomingRequest} req
 		 * @returns {Promise}
 		 */
+		/*async authorize(ctx, route, req) {
+			const cookies = req.headers.cookie;
+			if (!cookies) throw new UnAuthorizedError("No cookies found");
+
+			const accessToken = cookies
+				.split(";")
+				.find(c => c.trim().startsWith("accessToken="))
+				?.split("=")[1];
+
+			if (!accessToken) throw new UnAuthorizedError("No access token");
+
+			try {
+				const decoded = jwt.verify(accessToken, this.settings.JWT_SECRET);
+				ctx.meta.user = decoded; // 👈 ahora ctx.meta.user está disponible
+				ctx.meta.token = accessToken;
+				return ctx.meta.user;
+			} catch (err) {
+				throw new UnAuthorizedError("Invalid or expired token");
+			}
+		},
+	},*/
+
 		async authorize(ctx, route, req) {
 			let token;
 			if (req.headers.authorization) {

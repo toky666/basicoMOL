@@ -353,10 +353,12 @@ module.exports = {
 				ctx.meta.token = entity.data.token;
 				user.refreshToken = entity.data.refreshToken;
 				await this.adapter.updateById(user._id, { $set: { refreshToken: user.refreshToken } });
-				console.log("Usuario logueado:");
-				console.log(entity);
-				console.log(user.refreshToken);
-				console.log(await this.adapter.updateById(user._id, { $set: { refreshToken: user.refreshToken } }));
+				// 👉 Aquí colocas el punto 2
+				ctx.meta.setCookies = [
+					`accessToken=${entity.data.token}; HttpOnly; Secure; SameSite=Strict; Path=/`,
+					`refreshToken=${entity.data.refreshToken}; HttpOnly; Secure; SameSite=Strict; Path=/`
+				];
+				console.log("Tokens generados y cookies configuradas:", ctx.meta.setCookies);
 				return entity;
 			},
 		},
@@ -430,7 +432,7 @@ module.exports = {
 							namerol: user.namerol,
 						},
 						this.settings.JWT_SECRET,
-						{ expiresIn: "15m" },
+						{ expiresIn: "2m" },
 					);
 					return { user, token: newAccessToken };
 				} catch (err) {
@@ -618,7 +620,7 @@ module.exports = {
 						names: user.names,
 					},
 					this.settings.JWT_SECRET,
-					{ expiresIn: "15m" } // aquí defines la expiración real
+					{ expiresIn: "2m" } // aquí defines la expiración real
 				),
 				refreshToken: jwt.sign(
 					{
