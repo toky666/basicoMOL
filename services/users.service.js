@@ -7,7 +7,7 @@ const jwt = require("jsonwebtoken");
 
 const DbService = require("../mixins/db.mixin");
 const CacheCleanerMixin = require("../mixins/cache.cleaner.mixin");
-
+const sessionStore = new Map();
 module.exports = {
 	name: "users",
 	mixins: [DbService("users"), CacheCleanerMixin(["cache.clean.users"])],
@@ -325,6 +325,7 @@ module.exports = {
 		 *
 		 * @returns {Object} Logged in user with token
 		 */
+		
 		login: {
 			params: {
 				user: {
@@ -358,7 +359,22 @@ module.exports = {
 					`accessToken=${entity.data.token}; HttpOnly; Secure; SameSite=Strict; Path=/`,
 					`refreshToken=${entity.data.refreshToken}; HttpOnly; Secure; SameSite=Strict; Path=/`
 				];
+				// Guardar temporalmente en meta
+				// Guardar en memoria por token
+				sessionStore.set(entity.data.token,{
+					_id: entity.data._id,
+					names: entity.data.names,
+					idrol: entity.data.idrol,
+					image: entity.data.image,
+					last_name: entity.data.last_name,
+					email: entity.data.email,
+					token: entity.data.token,
+					refreshToken: entity.data.refreshToken
+				});
 				console.log("Tokens generados y cookies configuradas:", ctx.meta.setCookies);
+				// Mostrar en consola
+				console.log("Guardado en sessionStore:", sessionStore.get(entity.data.token));
+				console.log("Usuario logeado:", user);
 				return entity;
 			},
 		},
@@ -457,7 +473,12 @@ module.exports = {
 			rest: "GET /me",
 			cache: false,            // expone el endpoint GET /me
 			async handler(ctx) {
-				// El usuario viene del token decodificado
+				const token = ctx.meta.token;
+				const user = sessionStore.get(token);
+				console.log("Usuario obtenido de sessionStore:", user);
+				if (!user) throw new Moleculer.Errors.MoleculerClientError("User not found!", 404);
+				return
+				/*// El usuario viene del token decodificado
 				const user = await this.getById(ctx.meta.user._id);
 				console.log("Usuario en /me:", user);
 				console.log("Token en /me:", ctx.meta.token);
@@ -473,7 +494,7 @@ module.exports = {
 					last_name: user.last_name,
 					token: ctx.meta.token,
 					refreshToken: user.refreshToken   // 👈 lo traes de la BD
-				};
+				};*/
 			}
 		},
 

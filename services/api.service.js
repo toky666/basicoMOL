@@ -8,7 +8,7 @@ module.exports = {
 	settings: {
 		port: process.env.PORT || 3081,
 		cors: {
-			origin: "http://localhost:4200", 	//mi FRONTEND esta en el puerto 4200, pero si usas postman usa *
+			origin: "*", 	//mi FRONTEND esta en el puerto 4200, pero si usas postman usa *
 			credentials: true,					// 👈 Permite enviar cookies en las solicitudes CORS
 		},
 		routes: [
