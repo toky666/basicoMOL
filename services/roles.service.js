@@ -144,6 +144,7 @@ module.exports = {
 				sort: { type: "object", optional: true },
 			},
 			async handler(ctx) {
+				
 				const limit = ctx.params.limit ? Number(ctx.params.limit) : 5;
 				const query = ctx.params.query ? this.gnrQuery(ctx.params.query) : {};
 				const sort = ctx.params.sort || "-_id";

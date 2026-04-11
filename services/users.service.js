@@ -325,7 +325,7 @@ module.exports = {
 		 *
 		 * @returns {Object} Logged in user with token
 		 */
-		
+
 		login: {
 			params: {
 				user: {
@@ -354,14 +354,24 @@ module.exports = {
 				ctx.meta.token = entity.data.token;
 				user.refreshToken = entity.data.refreshToken;
 				await this.adapter.updateById(user._id, { $set: { refreshToken: user.refreshToken } });
-				// 👉 Aquí colocas el punto 2
-				ctx.meta.setCookies = [
-					`accessToken=${entity.data.token}; HttpOnly; Secure; SameSite=Strict; Path=/`,
-					`refreshToken=${entity.data.refreshToken}; HttpOnly; Secure; SameSite=Strict; Path=/`
+
+				// Calcula expiraciones consistentes
+				// En tu login handler
+				const accessTokenExpiry = 1 * 60; // 1 minuto en segundos (igual a expiresIn: "1m")
+				const refreshTokenExpiry = 3 * 60; // 3 minutos en segundos
+				ctx.meta.headers = ctx.meta.headers || {};
+				ctx.meta.headers['Set-Cookie'] = [
+					`accessToken=${entity.data.token}; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=${accessTokenExpiry}`,
+					`refreshToken=${entity.data.refreshToken}; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=${refreshTokenExpiry}`
 				];
+
+				console.log("Token a enviar:", entity.data.token);
+				console.log("RefreshToken a enviar:", entity.data.refreshToken);
+
+				console.log("Cookies a enviar:", ctx.meta.headers);
 				// Guardar temporalmente en meta
 				// Guardar en memoria por token
-				sessionStore.set(entity.data.token,{
+				sessionStore.set(entity.data.email, {
 					_id: entity.data._id,
 					names: entity.data.names,
 					idrol: entity.data.idrol,
@@ -387,14 +397,48 @@ module.exports = {
 		 *
 		 * @returns {Object} Resolved user
 		 */
+		/*refreshToken: {
+			rest: "POST /users/refreshToken",
+			async handler(ctx) {
+				try {
+					// Debug: ver qué headers llegan
+					console.log("Headers:", ctx.meta.cookies);
+					const cookies = ctx.meta.cookies || '';
+					console.log("Cookies string:", cookies);
+					// Buscar refreshToken en el string
+					const match = cookies.match(/refreshToken=([^;]+)/);
+					const refreshToken = match ? match[1] : null;
+					console.log("Refresh token encontrado:", refreshToken);
+					if (!refreshToken) {
+						throw new Error("No refresh token found in cookies");
+					}
+					const decodedRefresh = jwt.verify(
+						refreshToken,
+						this.settings.JWT_REFRESH_SECRET
+					);
+					const user = await this.getById(decodedRefresh._id);
+					const newAccessToken = jwt.sign(
+						{ id: user._id, idrol: user.idrol, namerol: user.namerol },
+						this.settings.JWT_SECRET,
+						{ expiresIn: "2m" }
+					);
+					ctx.meta.setHeader("Set-Cookie", [
+						`accessToken=${newAccessToken}; HttpOnly; Secure; Path=/; Max-Age=120`,
+					]);
 
-		resolveToken: {
+					return { user, token: newAccessToken };
+				} catch (err) {
+					throw new Error("Refresh token inválido", 401);
+				}
+			}
+		},*/
+		/*resolveToken: {
 			cache: false,
 			//Para rendimiento: puedes usar ttl en Moleculer
 			/*cache: {
 				keys: ["token"],
 				ttl: 60 * 60, // 1 hora solo cache, no controla la vida del token
-			},*/
+			},
 			params: {
 				token: "string",
 			},
@@ -426,7 +470,7 @@ module.exports = {
 					});
 				}
 			},
-		},
+		},*/
 
 		refreshToken: {
 			rest: "POST /users/refreshToken",
@@ -450,6 +494,13 @@ module.exports = {
 						this.settings.JWT_SECRET,
 						{ expiresIn: "2m" },
 					);
+					// En tu login handler
+					const accessTokenExpiry = 1 * 60; // 1 minuto en segundos (igual a expiresIn: "1m")
+					ctx.meta.headers = ctx.meta.headers || {};
+					ctx.meta.headers['Set-Cookie'] = [
+						`accessToken=${newAccessToken}; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=${accessTokenExpiry}`
+					];
+
 					return { user, token: newAccessToken };
 				} catch (err) {
 					throw new UnAuthorizedError("Refresh token inválido", 401, "REFRESH_INVALID", {
@@ -469,15 +520,45 @@ module.exports = {
 		 * @returns {Object} User entity
 		 */
 		me: {
-			auth: "required",              // requiere JWT válido
+			auth: false,
+			rest: "GET /me",
+			cache: false,
+			async handler(ctx) {
+				const authHeader = ctx.meta.headers.authorization;
+				let email;
+
+				if (authHeader) {
+					const token = authHeader.replace("Bearer ", "");
+					try {
+						const decoded = jwt.verify(token, process.env.JWT_SECRET || "jwt-conduit-secret", {
+							ignoreExpiration: true  // ✅ Ignora expiración
+						});
+						email = decoded.email;
+					} catch (err) {
+						// Si no hay token válido, continúa sin email
+					}
+				}
+
+				if (!email) {
+					throw new Moleculer.Errors.MoleculerClientError("No email provided", 400);
+				}
+
+				const user = sessionStore.get(email);
+				if (!user) throw new Moleculer.Errors.MoleculerClientError("User not found", 404);
+				return user;
+			}
+		},
+		me: {
+			//auth: false,              // requiere JWT válido
 			rest: "GET /me",
 			cache: false,            // expone el endpoint GET /me
 			async handler(ctx) {
-				const token = ctx.meta.token;
-				const user = sessionStore.get(token);
-				console.log("Usuario obtenido de sessionStore:", user);
-				if (!user) throw new Moleculer.Errors.MoleculerClientError("User not found!", 404);
-				return
+				//console.log("Token recibido en /me:", ctx.meta.email);
+				console.log("SessionStore contiene email?", sessionStore.has(ctx.meta.email));
+				const user = sessionStore.get(ctx.meta.email);
+				console.log("FINAL", user);
+				//if (!user) throw new Moleculer.Errors.MoleculerClientError("User not found!", 404);
+				return user;
 				/*// El usuario viene del token decodificado
 				const user = await this.getById(ctx.meta.user._id);
 				console.log("Usuario en /me:", user);
@@ -641,7 +722,7 @@ module.exports = {
 						names: user.names,
 					},
 					this.settings.JWT_SECRET,
-					{ expiresIn: "2m" } // aquí defines la expiración real
+					{ expiresIn: "1m" } // aquí defines la expiración real
 				),
 				refreshToken: jwt.sign(
 					{
@@ -652,7 +733,7 @@ module.exports = {
 						names: user.names,
 					}, // puedes guardar solo lo mínimo
 					this.settings.JWT_REFRESH_SECRET, // usa otra clave distinta
-					{ expiresIn: "8h" } // refresh dura más tiempo
+					{ expiresIn: "3m" } // refresh dura más tiempo
 				),
 			};
 			return { data };

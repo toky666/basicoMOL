@@ -2,20 +2,37 @@
 const _ = require("lodash");
 const ApiGateway = require("moleculer-web");
 const { UnAuthorizedError } = ApiGateway.Errors;
+const jwt = require('jsonwebtoken');
+const { MoleculerClientError } = require('moleculer').Errors;
 module.exports = {
 	name: "api",
 	mixins: [ApiGateway],
 	settings: {
 		port: process.env.PORT || 3081,
 		cors: {
-			origin: "*", 	//mi FRONTEND esta en el puerto 4200, pero si usas postman usa *
+			origin: "http://localhost:4200", 	//mi FRONTEND esta en el puerto http://localhost:4200, pero si usas postman usa *
 			credentials: true,					// 👈 Permite enviar cookies en las solicitudes CORS
 		},
 		routes: [
 			{
+				//path: "/",  // ← Esta ruta debe contener el login
 				authorization: false,
 				aliases: {
 					"POST /users/login": "users.login",
+					"GET /me": "users.me",
+					"POST /users/refreshToken": "users.refreshToken"
+				},
+				onBeforeCall(ctx, route, req, res) {
+					// Pasar headers y cookies al contexto
+					ctx.meta.headers = req.headers;
+					ctx.meta.cookies = req.headers.cookie || '';
+				},
+				onAfterCall(ctx, route, req, res, data) {
+					// Pasar las cookies del contexto a la respuesta
+					if (ctx.meta.headers && ctx.meta.headers['Set-Cookie']) {
+						res.setHeader('Set-Cookie', ctx.meta.headers['Set-Cookie']);
+					}
+					return data;
 				},
 				mappingPolicy: "restrict",
 				bodyParsers: {
@@ -40,6 +57,7 @@ module.exports = {
 						extended: false,
 					},
 				},
+
 				onError(req, res, err) {
 					// Return with the error as JSON object
 					res.setHeader("Content-type", "application/json; charset=utf-8");
@@ -124,15 +142,6 @@ module.exports = {
 		assets: {
 			folder: "./public",
 		},
-		// 👇 habilita cookies en las respuestas
-		onAfterCall(ctx, route, req, res, data) {
-			if (ctx.meta.setCookies) {
-				ctx.meta.setCookies.forEach(cookie => {
-					res.setHeader("Set-Cookie", cookie);
-				});
-			}
-			return data;
-		},
 
 		// logRequestParams: "info",
 		// logResponseData: "info",
@@ -149,29 +158,120 @@ module.exports = {
 		 * @param {IncomingRequest} req
 		 * @returns {Promise}
 		 */
-		/*async authorize(ctx, route, req) {
-			const cookies = req.headers.cookie;
-			if (!cookies) throw new UnAuthorizedError("No cookies found");
+
+		async authorize(ctx, route, req, res) {
+			// ✅ Excluye /me completamente
+			if (req.url.includes('/api/me')) {
+				console.log("Saltando autorización para /me");
+				return; // Sale sin hacer nada
+			}
+			console.log("action name", ctx.action.name);
+			console.log("URL:", req.url);
+			const cookies = req.headers.cookie || '';
+			console.log("Cookies en authorize:", cookies);
 
 			const accessToken = cookies
-				.split(";")
-				.find(c => c.trim().startsWith("accessToken="))
-				?.split("=")[1];
+				.split(';')
+				.find(c => c.trim().startsWith('accessToken='))
+				?.split('=')[1];
 
-			if (!accessToken) throw new UnAuthorizedError("No access token");
+			console.log("Token extraído:", accessToken);
+
+			if (!accessToken) {
+				throw new MoleculerClientError("Unauthorized: No token", 401);
+			}
 
 			try {
-				const decoded = jwt.verify(accessToken, this.settings.JWT_SECRET);
-				ctx.meta.user = decoded; // 👈 ahora ctx.meta.user está disponible
-				ctx.meta.token = accessToken;
-				return ctx.meta.user;
+				const decoded = jwt.verify(accessToken, process.env.JWT_SECRET || "jwt-conduit-secret");
+				ctx.meta.token = decoded;
 			} catch (err) {
-				throw new UnAuthorizedError("Invalid or expired token");
+				console.error("Error verificando token:", err.message);
+				throw new MoleculerClientError("Unauthorized: Token inválido", 401);
 			}
-		},
-	},*/
+		}
 
-		async authorize(ctx, route, req) {
+		/*async authorize(ctx, route, req) {
+			let tokenValue = null;
+
+			// Opción 1: Desde cookies
+			const cookies = req.headers.cookie;
+			console.log("Cookies recibidas:", cookies); // ← DEBUG
+
+			if (cookies) {
+				const accessToken = cookies.split(';').find(c => c.trim().startsWith("accessToken="));
+				if (accessToken) {
+					tokenValue = accessToken.split("=")[1];
+				}
+			}
+
+			// Opción 2: Desde Authorization header
+			if (!tokenValue && req.headers.authorization) {
+				const auth = req.headers.authorization;
+				console.log("Auth header:", auth); // ← DEBUG
+				tokenValue = auth.replace("Bearer ", "").replace("Token ", "");
+			}
+
+			console.log("Token a verificar:", tokenValue); // ← DEBUG
+			console.log("JWT_SECRET:", this.settings.JWT_SECRET); // ← DEBUG
+
+			if (tokenValue) {
+				try {
+					const decoded = jwt.verify(tokenValue, this.settings.JWT_SECRET);
+					ctx.meta.token = decoded;
+					return ctx.meta.token;
+				} catch (err) {
+					console.log("JWT Error:", err.name, err.message);
+					throw new Error("Unauthorized: " + err.message);
+				}
+			}
+
+			throw new Error("Unauthorized: No token provided");
+		},
+		/*async authorize(ctx, route, req) {
+			let token;
+			// 1️⃣ Buscar en Authorization header
+			if (req.headers.authorization) {
+				let type = req.headers.authorization.split(" ")[0];
+				if (type === "Token" || type === "Bearer")
+					token = req.headers.authorization.split(" ")[1];
+			}
+			// 2️⃣ Si no hay header, buscar en cookies
+			if (!token && req.headers.cookie) {
+				const accessToken = req.headers.cookie.split(';').find(c => c.trim().startsWith("accessToken="));
+				if (accessToken) {
+					token = accessToken.split("=")[1];
+				}
+			}
+			let user;
+			if (token) {
+				try {
+					user = await ctx.call("users.resolveToken", { token });
+					if (user) {
+						this.logger.info("Authenticated via JWT: ", user.names);
+						// Reduce user fields (it will be transferred to other nodes)
+						ctx.meta.user = _.pick(user, [
+							"_id",
+							"names",
+							"last_names",
+							"idrol",
+							"namerol",
+							"email",
+							"image",
+							"token",
+						]);
+						ctx.meta.token = token;
+						ctx.meta.userID = user._id;
+					}
+				} catch (err) {
+					// Ignored because we continue processing if user doesn't exists
+				}
+			}
+			if (req.$action.auth == "required" && !user)
+				throw new UnAuthorizedError();
+		},*/
+
+
+		/*async authorize(ctx, route, req) {
 			let token;
 			if (req.headers.authorization) {
 				let type = req.headers.authorization.split(" ")[0];
@@ -204,6 +304,6 @@ module.exports = {
 			}
 			if (req.$action.auth == "required" && !user)
 				throw new UnAuthorizedError();
-		},
+		},*/
 	},
 };
