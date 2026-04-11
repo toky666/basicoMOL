@@ -733,7 +733,7 @@ module.exports = {
 						names: user.names,
 					}, // puedes guardar solo lo mínimo
 					this.settings.JWT_REFRESH_SECRET, // usa otra clave distinta
-					{ expiresIn: "3m" } // refresh dura más tiempo
+					{ expiresIn: "6m" } // refresh dura más tiempo
 				),
 			};
 			return { data };
