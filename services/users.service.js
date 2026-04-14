@@ -276,10 +276,10 @@ module.exports = {
 			async handler(ctx) {
 				const limit = ctx.params.limit ? Number(ctx.params.limit) : 5;
 				const offset = ctx.params.offset ? Number(ctx.params.offset) : 0;
-				const sort = ctx.params.sort || { _id: -1 }; // Construcción dinámica del query
+				const sort = ctx.params.sort || { _id: -1 };
 
-				const query = ctx.params.query ? this.buildQuery(ctx.params.query) : {}; // Parámetros para el adaptador
-				const params = { limit, offset, sort, query }; // Conteo total y datos filtrados
+				const query = ctx.params.query ? this.buildQuery(ctx.params.query) : {};
+				const params = { limit, offset, sort, query };
 				const count = await this.adapter.count({ query });
 				const data = await this.adapter.find(params);
 
@@ -339,8 +339,6 @@ module.exports = {
 			async handler(ctx) {
 				const { email, password } = ctx.params.user;
 				const user = await this.adapter.findOne({ email });
-				console.log("***********************");
-				console.log(ctx.params.user);
 				if (!user)
 					throw new MoleculerClientError(
 						"Email or password is invalid!", 422, "",
@@ -354,38 +352,28 @@ module.exports = {
 				ctx.meta.token = entity.data.token;
 				user.refreshToken = entity.data.refreshToken;
 				await this.adapter.updateById(user._id, { $set: { refreshToken: user.refreshToken } });
-
-				// Calcula expiraciones consistentes
-				// En tu login handler
-				const accessTokenExpiry = 1 * 60; // 1 minuto en segundos (igual a expiresIn: "1m")
-				const refreshTokenExpiry = 3 * 60; // 3 minutos en segundos
+				const accessTokenExpiry = 2 * 60; // 2 minutos en segundos (igual a expiresIn: "2m")
+				const refreshTokenExpiry = 5 * 60; // 5 minutos en segundos
 				ctx.meta.headers = ctx.meta.headers || {};
-				ctx.meta.headers['Set-Cookie'] = [
+				/*ctx.meta.headers['Set-Cookie'] = [
 					`accessToken=${entity.data.token}; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=${accessTokenExpiry}`,
 					`refreshToken=${entity.data.refreshToken}; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=${refreshTokenExpiry}`
+				];*/ // para producción, con Secure y SameSite=None
+				ctx.meta.headers['Set-Cookie'] = [
+					`accessToken=${entity.data.token}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${accessTokenExpiry}`,
+					`refreshToken=${entity.data.refreshToken}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${refreshTokenExpiry}`
 				];
-
-				console.log("Token a enviar:", entity.data.token);
-				console.log("RefreshToken a enviar:", entity.data.refreshToken);
-
-				console.log("Cookies a enviar:", ctx.meta.headers);
-				// Guardar temporalmente en meta
 				// Guardar en memoria por token
 				sessionStore.set(entity.data.email, {
 					_id: entity.data._id,
-					names: entity.data.names,
 					idrol: entity.data.idrol,
-					image: entity.data.image,
-					last_name: entity.data.last_name,
-					email: entity.data.email,
-					token: entity.data.token,
-					refreshToken: entity.data.refreshToken
 				});
-				console.log("Tokens generados y cookies configuradas:", ctx.meta.setCookies);
-				// Mostrar en consola
-				console.log("Guardado en sessionStore:", sessionStore.get(entity.data.token));
-				console.log("Usuario logeado:", user);
-				return entity;
+				return {
+					data: {
+						_id: entity.data._id,
+						idrol: entity.data.idrol,
+					}
+				};
 			},
 		},
 
@@ -475,13 +463,16 @@ module.exports = {
 		refreshToken: {
 			rest: "POST /users/refreshToken",
 			cache: false,
-			params: {
-				refreshToken: "string"
-			},
 			async handler(ctx) {
 				try {
+					const cookies = ctx.meta.headers.cookie?.split(';') || [];
+					const refreshTokenFromCookie = cookies
+						.filter(c => c.trim().toLowerCase().startsWith('refreshtoken='))
+						.pop()
+						?.trim()
+						.substring('refreshToken='.length);  // ← corta exactamente el prefijo
 					const decodedRefresh = jwt.verify(
-						ctx.params.refreshToken,
+						refreshTokenFromCookie,
 						this.settings.JWT_REFRESH_SECRET
 					);
 					const user = await this.getById(decodedRefresh._id);
@@ -489,21 +480,24 @@ module.exports = {
 						{
 							_id: user._id,
 							idrol: user.idrol,
-							namerol: user.namerol,
 						},
 						this.settings.JWT_SECRET,
 						{ expiresIn: "2m" },
 					);
-					// En tu login handler
-					const accessTokenExpiry = 1 * 60; // 1 minuto en segundos (igual a expiresIn: "1m")
+					const accessTokenExpiry = 2 * 60; // 2 minutos en segundos (igual a expiresIn: "2m")
 					ctx.meta.headers = ctx.meta.headers || {};
 					ctx.meta.headers['Set-Cookie'] = [
 						`accessToken=${newAccessToken}; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=${accessTokenExpiry}`
 					];
 
-					return { user, token: newAccessToken };
+					return {
+						user: {
+							_id: user._id,
+							idrol: user.idrol,
+						}
+					};
 				} catch (err) {
-					throw new UnAuthorizedError("Refresh token inválido", 401, "REFRESH_INVALID", {
+					throw new MoleculerClientError("Refresh token inválido", 401, "REFRESH_INVALID", {
 						error: "Refresh token inválido",
 						code: "REFRESH_INVALID"
 					});
@@ -519,7 +513,7 @@ module.exports = {
 		 *
 		 * @returns {Object} User entity
 		 */
-		me: {
+		me2: {
 			auth: false,
 			rest: "GET /me",
 			cache: false,
@@ -553,34 +547,12 @@ module.exports = {
 			rest: "GET /me",
 			cache: false,            // expone el endpoint GET /me
 			async handler(ctx) {
-				//console.log("Token recibido en /me:", ctx.meta.email);
 				console.log("SessionStore contiene email?", sessionStore.has(ctx.meta.email));
 				const user = sessionStore.get(ctx.meta.email);
 				console.log("FINAL", user);
-				//if (!user) throw new Moleculer.Errors.MoleculerClientError("User not found!", 404);
 				return user;
-				/*// El usuario viene del token decodificado
-				const user = await this.getById(ctx.meta.user._id);
-				console.log("Usuario en /me:", user);
-				console.log("Token en /me:", ctx.meta.token);
-				console.log("Refresh Token en /me:", user.refreshToken);
-				if (!user) throw new Moleculer.Errors.MoleculerClientError("User not found!", 404);
-
-				// Devuelves los datos que quieras exponer
-				return {
-					_id: user._id,
-					names: user.names,
-					image: user.image || "",
-					idrol: user.idrol,
-					last_name: user.last_name,
-					token: ctx.meta.token,
-					refreshToken: user.refreshToken   // 👈 lo traes de la BD
-				};*/
 			}
 		},
-
-
-
 
 		list: {
 			rest: "GET /users",
@@ -710,30 +682,21 @@ module.exports = {
 			let data = {
 				_id: user._id,
 				idrol: user.idrol,
-				image: user.image,
-				last_name: user.last_name,
-				names: user.names,
 				token: jwt.sign(
 					{
 						_id: user._id,
 						idrol: user.idrol,
-						image: user.image,
-						last_name: user.last_name,
-						names: user.names,
 					},
 					this.settings.JWT_SECRET,
-					{ expiresIn: "1m" } // aquí defines la expiración real
+					{ expiresIn: "2m" } // aquí defines la expiración real
 				),
 				refreshToken: jwt.sign(
 					{
 						_id: user._id,
 						idrol: user.idrol,
-						image: user.image,
-						last_name: user.last_name,
-						names: user.names,
 					}, // puedes guardar solo lo mínimo
 					this.settings.JWT_REFRESH_SECRET, // usa otra clave distinta
-					{ expiresIn: "6m" } // refresh dura más tiempo
+					{ expiresIn: "5m" } // refresh dura más tiempo
 				),
 			};
 			return { data };
