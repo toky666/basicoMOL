@@ -352,8 +352,8 @@ module.exports = {
 				ctx.meta.token = entity.data.token;
 				user.refreshToken = entity.data.refreshToken;
 				await this.adapter.updateById(user._id, { $set: { refreshToken: user.refreshToken } });
-				const accessTokenExpiry = 2 * 60; // 2 minutos en segundos (igual a expiresIn: "2m")
-				const refreshTokenExpiry = 5 * 60; // 5 minutos en segundos
+				const accessTokenExpiry = 15 * 60; // 15 minutos en segundos (igual a expiresIn: "15m")
+				const refreshTokenExpiry = 12 * 60 * 60; // 12 horas en segundos
 				ctx.meta.headers = ctx.meta.headers || {};
 				/*ctx.meta.headers['Set-Cookie'] = [
 					`accessToken=${entity.data.token}; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=${accessTokenExpiry}`,
@@ -482,9 +482,9 @@ module.exports = {
 							idrol: user.idrol,
 						},
 						this.settings.JWT_SECRET,
-						{ expiresIn: "2m" },
+						{ expiresIn: "15m" },
 					);
-					const accessTokenExpiry = 2 * 60; // 2 minutos en segundos (igual a expiresIn: "2m")
+					const accessTokenExpiry = 15 * 60; // 15 minutos en segundos (igual a expiresIn: "15m")
 					ctx.meta.headers = ctx.meta.headers || {};
 					ctx.meta.headers['Set-Cookie'] = [
 						`accessToken=${newAccessToken}; HttpOnly; SameSite=None; Secure; Path=/; Max-Age=${accessTokenExpiry}`
@@ -688,7 +688,7 @@ module.exports = {
 						idrol: user.idrol,
 					},
 					this.settings.JWT_SECRET,
-					{ expiresIn: "2m" } // aquí defines la expiración real
+					{ expiresIn: "15m" } // aquí defines la expiración real
 				),
 				refreshToken: jwt.sign(
 					{
@@ -696,7 +696,7 @@ module.exports = {
 						idrol: user.idrol,
 					}, // puedes guardar solo lo mínimo
 					this.settings.JWT_REFRESH_SECRET, // usa otra clave distinta
-					{ expiresIn: "5m" } // refresh dura más tiempo
+					{ expiresIn: "12h" } // refresh dura más tiempo
 				),
 			};
 			return { data };
